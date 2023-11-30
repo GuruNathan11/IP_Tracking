@@ -6,20 +6,29 @@ const port = 3000;
 
 app.use(express.json());
 
-// Middleware to get client's IP address and fetch information
+// Middleware to get public IP address and fetch information
 app.use('/api/get', (req, res, next) => {
-  const clientIp = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+  axios.get('https://api64.ipify.org?format=json')
+    .then(ipifyResponse => {
+      const publicIpAddress = ipifyResponse.data.ip;
 
-  // Extract the IPv4 address from the IPv6-mapped format
-  const ipv4Address = clientIp.includes('::ffff:') ? clientIp.split('::ffff:')[1] : clientIp;
-
-  axios.get(`https://ipinfo.io/${ipv4Address}/json`)
-    .then(response => {
-      req.ipInfo = response.data;
-      next();
+      if (publicIpAddress) {
+        axios.get(`https://ipinfo.io/${publicIpAddress}/json`)
+          .then(response => {
+            req.ipInfo = response.data;
+            next();
+          })
+          .catch(error => {
+            console.error('Error fetching IP information:', error.message);
+            res.status(500).json({ error: 'Internal Server Error' });
+          });
+      } else {
+        console.error('Public IP address not available.');
+        res.status(500).json({ error: 'Internal Server Error' });
+      }
     })
     .catch(error => {
-      console.error('Error fetching IP information:', error.message);
+      console.error('Error fetching public IP address:', error.message);
       res.status(500).json({ error: 'Internal Server Error' });
     });
 });
@@ -34,10 +43,10 @@ app.get('/api/get', (req, res) => {
     'IP LOCATION': `${data.city || 'Unknown'}, ${data.region || 'Unknown'} (${data.country || 'Unknown'})`,
     ISP: data.org || 'Unknown',
     'PROXY': data.proxy ? 'Detected' : 'Not Detected',
-    PLATFORM: data.platform || 'N/A',
-    BROWSER: data.browser || 'N/A',
-    'SCREEN SIZE': `${data.screenWidth || 'Unknown'}px X ${data.screenHeight || 'Unknown'}px`,
-    JAVASCRIPT: data.js ? 'Enabled' : 'Disabled',
+    // PLATFORM: data.platform || 'N/A',
+    // BROWSER: data.browser || 'N/A',
+    // 'SCREEN SIZE': `${data.screenWidth || 'Unknown'}px X ${data.screenHeight || 'Unknown'}px`,
+    // JAVASCRIPT: data.js ? 'Enabled' : 'Disabled',
     COOKIE: data.cookies ? 'Enabled' : 'Disabled',
   });
 });
